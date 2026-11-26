@@ -1,0 +1,26 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;height:100%;background:transparent;overflow:hidden}
+#s{position:relative;width:100%;height:100%;overflow:hidden;background:linear-gradient(transparent,rgba(120,70,30,.35) 45%,rgba(90,50,20,.55))}
+.h{position:absolute;width:var(--w);animation:run var(--d) linear infinite;animation-delay:var(--dl)}
+.h svg{width:100%;overflow:visible}.h .legs{animation:leg .2s linear infinite alternate;transform-origin:50% 0}.h .body{animation:bob .2s infinite alternate}
+@keyframes run{from{transform:translateX(-30vw)}to{transform:translateX(130vw)}}
+@keyframes leg{from{transform:skewX(20deg)}to{transform:skewX(-20deg)}}@keyframes bob{to{transform:translateY(-3px)}}
+.dust{position:absolute;border-radius:50%;background:rgba(170,135,95,.55);animation:dust 1.2s ease-out infinite;animation-delay:var(--dl)}
+@keyframes dust{0%{transform:scale(.3);opacity:.9}100%{transform:translate(-40px,-30px) scale(2.6);opacity:0}}
+</style></head><body><div id="s"></div><script>
+/* 衝向城門：畫面下方一大群兵馬由左往右奔騰，揚起煙塵。 */
+const COL=["#c0392b","#2f6f9f","#2e8b57","#b8860b","#7d3c98"];
+function horse(c){return `<svg viewBox="0 -24 80 74"><g class="body"><path d="M10 26 q4-10 22-10 h18 q8 0 12-8 l6 2 -3 10 q-2 8-10 10 h-30 q-12 0-15-4z" fill="#6b3e1f"/>
+ <path d="M58 8 l4-6 3 7" fill="#4a2b17"/><path d="M8 24 q-8 2-6 12" stroke="#3a1c0c" stroke-width="3" fill="none"/>
+ <rect x="30" y="2" width="10" height="16" rx="4" fill="${c}"/><circle cx="35" cy="0" r="5" fill="#f2d2b0"/><path d="M35 -5 v-14" stroke="#4a2b17" stroke-width="2"/>
+ <path d="M35 -19 h12 l-3 5 3 5 h-12z" fill="${c}" stroke="#fff3c4" stroke-width="1"/></g>
+ <g class="legs" stroke="#4a2b17" stroke-width="3.5" stroke-linecap="round"><path d="M16 28 v18"/><path d="M24 28 v18"/><path d="M46 28 v18"/><path d="M54 28 v18"/></g></svg>`}
+const S=document.getElementById("s"); let html="";
+for(let i=0;i<18;i++){const row=i%4, w=70+row*22, y=8+row*22+Math.random()*6, d=(2.2+Math.random()*1.2).toFixed(2), dl=(-Math.random()*3).toFixed(2);
+  html+=`<div class="h" style="--w:${w}px;--d:${d}s;--dl:${dl}s;top:${y}%;z-index:${row}">${horse(COL[i%COL.length])}</div>`}
+for(let i=0;i<26;i++){html+=`<div class="dust" style="left:${Math.random()*100}%;bottom:${Math.random()*25}%;width:${20+Math.random()*30}px;height:${20+Math.random()*30}px;--dl:${(-Math.random()*1.2).toFixed(2)}s"></div>`}
+S.innerHTML=html;
+function post(m){window.parent.postMessage(Object.assign({isStreamlitMessage:true},m),"*")}
+window.addEventListener("message",e=>{const d=e.data;if(d&&d.type==="streamlit:render")post({type:"streamlit:setFrameHeight",height:d.args&&d.args.h||300})});
+post({type:"streamlit:componentReady",apiVersion:1});
+</script></body></html>

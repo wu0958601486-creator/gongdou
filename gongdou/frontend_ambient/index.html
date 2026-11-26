@@ -1,0 +1,94 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:0;overflow:hidden;background:transparent}</style></head><body>
+<script>
+/* 全頁氛圍：飄花動畫＋背景音樂。
+   兩者都裝在「外層頁面」上（同網域可存取），所以 Streamlit 換畫面、這個小框被重建時，花瓣與音樂不會中斷重來。
+   背景音樂用瀏覽器內建的 WebAudio 即時合成（五聲音階的撥弦＋低音），不需要任何音樂檔案。
+   瀏覽器規定要使用者點一下畫面後才能出聲，所以第一次點擊畫面時才開始播放。 */
+const CODE = String.raw`
+(function(){
+  if (window.__gdAmbient) return;
+  const S = {vol: 40, petals: true, ctx: null, master: null, timer: null, next: 0, step: 0, started: false};
+  // ---------- 飄花 ----------
+  function petals(on){
+    let box = document.getElementById('gd-petals');
+    if (on && !box){
+      box = document.createElement('div'); box.id = 'gd-petals';
+      box.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:5;overflow:hidden';
+      const st = document.createElement('style');
+      st.textContent = '#gd-petals i{position:absolute;top:-24px;background:#f9b9c6;border-radius:150% 0 150% 0;opacity:.75;' +
+        'animation:gdfall linear infinite}@keyframes gdfall{to{transform:translate(70px,110vh) rotate(540deg)}}';
+      box.appendChild(st);
+      for (let i = 0; i < 16; i++){
+        const p = document.createElement('i'); const s = 7 + Math.random() * 9;
+        p.style.cssText = 'left:' + (Math.random() * 100) + '%;width:' + s + 'px;height:' + s + 'px;animation-duration:' +
+          (7 + Math.random() * 7) + 's;animation-delay:' + (-Math.random() * 12) + 's';
+        box.appendChild(p);
+      }
+      document.body.appendChild(box);
+    } else if (!on && box){ box.remove(); }
+  }
+  // ---------- 背景音樂（五聲音階撥弦，類似古箏的音色） ----------
+  const SCALE = [146.83, 164.81, 185.00, 220.00, 246.94, 293.66, 329.63, 369.99, 440.00, 493.88];   // D 宮調五聲音階
+  const RHY = [[1,1,2],[2,1,1],[1,1,1,1],[2,2],[3,1],[1,2,1]];
+  let pos = 4, pattern = [], pi = 0;
+  function pluck(t, f, g){
+    const c = S.ctx, o1 = c.createOscillator(), o2 = c.createOscillator(), e = c.createGain();
+    o1.type = 'triangle'; o2.type = 'sine'; o1.frequency.value = f; o2.frequency.value = f * 2;
+    const g2 = c.createGain(); g2.gain.value = .25;
+    o1.connect(e); o2.connect(g2); g2.connect(e); e.connect(S.master);
+    e.gain.setValueAtTime(0.0001, t); e.gain.exponentialRampToValueAtTime(g, t + .008);
+    e.gain.exponentialRampToValueAtTime(0.0001, t + 1.6);
+    o1.start(t); o2.start(t); o1.stop(t + 1.7); o2.stop(t + 1.7);
+  }
+  function drone(){
+    const c = S.ctx;
+    [73.42, 110].forEach(f => { const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.value = f;
+      g.gain.value = .035; o.connect(g); g.connect(S.master); o.start(); });
+  }
+  const BEAT = 0.42;
+  function schedule(){
+    const c = S.ctx; if (!c) return;
+    while (S.next < c.currentTime + 0.6){
+      if (pi >= pattern.length){ pattern = RHY[Math.floor(Math.random() * RHY.length)]; pi = 0; }
+      const len = pattern[pi++];
+      pos = Math.max(0, Math.min(SCALE.length - 1, pos + [-2,-1,-1,0,1,1,2][Math.floor(Math.random() * 7)]));
+      pluck(S.next, SCALE[pos], .22);
+      if (S.step % 8 === 0) pluck(S.next, SCALE[Math.max(0, pos - 5)] / 2, .14);
+      S.step++; S.next += len * BEAT;
+    }
+  }
+  function applyVol(){
+    if (!S.master) return;
+    const v = S.vol / 100 * 0.6;
+    S.master.gain.setTargetAtTime(v, S.ctx.currentTime, .2);
+    if (S.vol === 0) S.ctx.suspend(); else S.ctx.resume();
+  }
+  function start(){
+    if (S.started || S.vol === 0) return;
+    try {
+      S.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      S.master = S.ctx.createGain(); S.master.gain.value = 0; S.master.connect(S.ctx.destination);
+      drone(); S.next = S.ctx.currentTime + .1; S.timer = setInterval(schedule, 200); S.started = true; applyVol();
+    } catch(e) {}
+  }
+  ['pointerdown', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, start, {passive: true}));
+  window.__gdAmbient = {
+    set(o){
+      if (typeof o.vol === 'number') S.vol = Math.max(0, Math.min(100, o.vol));
+      if (typeof o.petals === 'boolean'){ S.petals = o.petals; petals(o.petals); }
+      if (S.started) applyVol(); else if (S.vol > 0 && navigator.userActivation && navigator.userActivation.hasBeenActive) start();
+    },
+    state(){ return {vol: S.vol, petals: S.petals, started: S.started}; }
+  };
+})();`;
+function post(m){ window.parent.postMessage(Object.assign({isStreamlitMessage: true}, m), '*'); }
+function apply(args){
+  try {
+    const P = window.parent, D = P.document;
+    if (!P.__gdAmbient){ const s = D.createElement('script'); s.id = 'gd-amb'; s.textContent = CODE; D.head.appendChild(s); }
+    P.__gdAmbient.set({vol: Number(args.vol ?? 40), petals: args.petals !== false});
+  } catch(e) { /* 外層頁面不允許存取時就不顯示，不影響遊戲 */ }
+}
+window.addEventListener('message', ev => { const d = ev.data; if (d && d.type === 'streamlit:render'){ apply(d.args || {}); post({type: 'streamlit:setFrameHeight', height: 0}); } });
+post({type: 'streamlit:componentReady', apiVersion: 1});
+</script></body></html>

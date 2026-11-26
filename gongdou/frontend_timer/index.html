@@ -1,0 +1,31 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;background:transparent;font-family:"Noto Serif TC","PMingLiU",serif;overflow:hidden}
+.trow{display:flex;align-items:center;gap:8px;padding:2px 2px}
+.timer{flex:1;display:flex;justify-content:center;align-items:baseline;gap:.4em;font-weight:900;font-size:20px;letter-spacing:.12em;color:#fff3c4;
+ background:rgba(0,0,0,.25);border:2px solid #e3b04b;border-radius:999px;padding:4px 10px;white-space:nowrap;overflow:hidden}
+.timer.soft{font-size:15px;color:rgba(255,243,196,.85);background:rgba(0,0,0,.12);border:1px solid rgba(227,176,75,.5);padding:3px 10px}
+.lab{overflow:hidden;text-overflow:ellipsis}
+/* 數字固定寬度：每個數字一樣寬、預留 5 個字的位置，倒數時框和文字都不會跳動 */
+.num{display:inline-block;min-width:5.2ch;text-align:left;font-variant-numeric:tabular-nums;font-feature-settings:"tnum";letter-spacing:.05em}
+.act{flex:none;font-weight:900;font-size:16px;letter-spacing:.12em;color:#5c0f12;background:linear-gradient(#ffe27a,#ff9d2e);
+ border:2px solid #fff3c4;border-radius:999px;padding:3px 14px;box-shadow:0 0 10px rgba(255,190,70,.75);white-space:nowrap}
+</style></head><body><div class="trow"><div id="t" class="timer"><span class="lab" id="lab"></span><span id="left"></span><span class="num" id="num"></span><span id="tail"></span></div><span class="act" id="act" style="display:none"></span></div>
+<script>
+/* 倒數框：在手機上自己每 0.25 秒更新數字，不需要伺服器每秒重畫（避免畫面閃動與重整錯誤）。
+   end＝結束時間（伺服器時間），now＝伺服器畫這一頁時的時間，用來校正手機與伺服器的時差。frozen 有值代表暫停中，停在那個秒數。 */
+let A={}, off=0, iv=null;
+function post(m){window.parent.postMessage(Object.assign({isStreamlitMessage:true},m),"*")}
+function fmt(s){s=Math.max(0,Math.ceil(s-0.001));return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0")}
+function draw(){const left=(A.frozen!==null&&A.frozen!==undefined)?A.frozen:(A.end-(Date.now()/1000+off));document.getElementById("num").textContent=fmt(left)}
+function render(a){
+  A=a; off=(a.now||Date.now()/1000)-Date.now()/1000;
+  const t=document.getElementById("t"); t.className="timer"+(a.soft?" soft":"");
+  document.getElementById("lab").textContent=a.label||""; document.getElementById("left").textContent=a.left_word||"剩餘";
+  document.getElementById("tail").textContent=a.tail||"";
+  const act=document.getElementById("act"); act.style.display=a.act?"":"none"; act.textContent=a.act||"";
+  draw(); if(!iv) iv=setInterval(draw,250);
+  post({type:"streamlit:setFrameHeight",height:a.soft?38:44});
+}
+window.addEventListener("message",e=>{const d=e.data;if(d&&d.type==="streamlit:render")render(d.args||{})});
+post({type:"streamlit:componentReady",apiVersion:1});
+</script></body></html>

@@ -1,0 +1,31 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+/* 公布與對話的互動特效：鼓掌＝直播式浮起的低透明度 👏；追問＝bilibili 式由右向左飄過的彈幕。整個畫面透明、不擋操作。 */
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:transparent;overflow:hidden;pointer-events:none}
+.clap{position:fixed;bottom:-40px;font-size:34px;opacity:0;animation:up 2.8s ease-out forwards;pointer-events:none}
+@keyframes up{0%{transform:translateY(0) scale(.6);opacity:0}12%{opacity:.4}100%{transform:translateY(-62vh) translateX(var(--dx)) scale(1.25);opacity:0}}
+.dm{position:fixed;left:100vw;white-space:nowrap;font:900 22px 'Noto Serif TC','PMingLiU',sans-serif;color:#fff;opacity:.92;
+ text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 2px 6px rgba(0,0,0,.6);
+ animation:fly var(--dur) linear forwards;pointer-events:none}
+@keyframes fly{to{transform:translateX(calc(-100vw - 100%))}}
+</style></head><body>
+<script>
+const post=m=>window.parent.postMessage(Object.assign({isStreamlitMessage:true},m),'*');
+let seenC=null,seenA=null,lane=0;
+function clap(){const e=document.createElement('div');e.className='clap';e.textContent='👏';
+ e.style.right=(8+Math.random()*26)+'vw';e.style.setProperty('--dx',((Math.random()*2-1)*40)+'px');
+ document.body.appendChild(e);setTimeout(()=>e.remove(),3000)}
+function danmaku(t){const e=document.createElement('div');e.className='dm';e.textContent=t;
+ e.style.top=(12+(lane++%5)*8+Math.random()*2)+'vh';e.style.setProperty('--dur',(7+Math.random()*2)+'s');
+ document.body.appendChild(e);setTimeout(()=>e.remove(),10000)}
+function render(a){
+  const c=a.claps||0,as=a.asks||[];
+  if(seenC===null){seenC=c;seenA=as.length;return}       // 第一次載入：只記數，不重播舊的
+  for(let i=seenC;i<c;i++)setTimeout(clap,(i-seenC)*180);
+  as.slice(seenA).forEach((t,i)=>setTimeout(()=>danmaku(t),i*400));
+  seenC=Math.max(seenC,c);seenA=Math.max(seenA,as.length);
+}
+window.addEventListener('message',ev=>{const d=ev.data;if(d&&d.type==='streamlit:render')render(d.args||{})});
+post({type:'streamlit:componentReady',apiVersion:1});
+</script></body></html>

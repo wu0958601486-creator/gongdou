@@ -1,0 +1,63 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;background:transparent;font-family:"Noto Serif TC","PMingLiU",serif;overflow:hidden}
+#w{position:relative;border:3px solid #e3b04b;border-radius:14px;overflow:hidden;background:linear-gradient(#e9c98f,#c99a5b)}
+.lane{position:relative;height:var(--h);border-bottom:2px dashed rgba(90,50,20,.35)}
+.lane.me{background:rgba(255,240,180,.35)}
+.lab{position:absolute;left:6px;top:3px;font-size:12px;font-weight:900;color:#4a2b17;z-index:3;text-shadow:0 1px 0 #fff3c4}
+.rider{position:absolute;bottom:2px;width:var(--rw);height:calc(var(--h) - 6px);z-index:2}
+.rider svg{position:absolute;bottom:0;height:100%;width:44%;overflow:visible}
+.rider svg:nth-child(1){left:0;opacity:.85;height:86%}.rider svg:nth-child(2){left:26%;bottom:3px;opacity:.92;height:92%}.rider svg:nth-child(3){left:56%}
+.rider svg:nth-child(2) .legs,.rider svg:nth-child(2) .body{animation-delay:-.1s}
+.gal .legs{animation:leg .22s linear infinite alternate;transform-origin:50% 0}
+.gal .body{animation:bob .22s ease-in-out infinite alternate}
+@keyframes leg{from{transform:skewX(18deg)}to{transform:skewX(-18deg)}}
+@keyframes bob{from{transform:translateY(0)}to{transform:translateY(-3px)}}
+.dust{position:absolute;bottom:2px;width:18px;height:18px;border-radius:50%;background:rgba(150,120,90,.55);z-index:1;animation:puff .7s ease-out forwards}
+@keyframes puff{from{transform:scale(.4);opacity:.8}to{transform:translate(-26px,-8px) scale(1.8);opacity:0}}
+#gate{position:absolute;right:0;top:0;bottom:0;width:46px;z-index:2}
+#gate .door{transition:transform .5s}
+#gate.broken .door{transform:translateX(30px) rotate(25deg);opacity:.4}
+.boom{position:absolute;right:6px;top:30%;font-size:34px;z-index:4;animation:boom 1s ease-out infinite}
+@keyframes boom{0%{transform:scale(.4);opacity:0}30%{opacity:1}100%{transform:scale(1.6);opacity:0}}
+.rk{position:absolute;left:6px;bottom:3px;background:#b3261e;color:#fff3c4;border-radius:999px;padding:1px 9px;font-size:13px;font-weight:900;z-index:3}
+</style></head><body><div id="w"></div><script>
+/* 萬馬奔騰賽道：每宮一條跑道，騎兵從 from 跑到 to（0–1），奔馳時揚起煙塵；最後衝向右邊城門。 */
+let timer=null, lastKey="";
+function post(m){window.parent.postMessage(Object.assign({isStreamlitMessage:true},m),"*")}
+function horse(color){return `<svg viewBox="0 -24 80 74"><g class="body">
+ <path d="M10 26 q4-10 22-10 h18 q8 0 12-8 l6 2 -3 10 q-2 8-10 10 h-30 q-12 0-15-4z" fill="#6b3e1f"/>
+ <path d="M58 8 l4-6 3 7" fill="#4a2b17"/><circle cx="64" cy="12" r="1.6" fill="#111"/>
+ <path d="M8 24 q-8 2-6 12" stroke="#3a1c0c" stroke-width="3" fill="none"/>
+ <rect x="30" y="2" width="10" height="16" rx="4" fill="${color}"/><circle cx="35" cy="0" r="5" fill="#f2d2b0"/>
+ <path d="M35 -5 v-14" stroke="#4a2b17" stroke-width="2"/><path d="M35 -19 h12 l-3 5 3 5 h-12z" fill="${color}" stroke="#fff3c4" stroke-width="1"/></g>
+ <g class="legs" stroke="#4a2b17" stroke-width="3.5" stroke-linecap="round"><path d="M16 28 v18"/><path d="M24 28 v18"/><path d="M46 28 v18"/><path d="M54 28 v18"/></g></svg>`}
+function render(a){
+  const teams=a.teams||[], lh=a.lane||46, W=document.getElementById("w");
+  const key=JSON.stringify([teams.map(t=>[t.idx,t.from,t.to,t.rank]),a.mode,a.lane]);
+  if(key===lastKey){return} lastKey=key;
+  if(timer){clearInterval(timer);timer=null}
+  W.style.setProperty("--h",lh+"px"); W.style.setProperty("--rw",(lh*2.6)+"px");
+  W.innerHTML=teams.map(t=>`<div class="lane${t.me?" me":""}" data-i="${t.idx}"><div class="lab">${t.name}${t.me?"（本宮）":""}</div>
+    <div class="rider" style="color:${t.color}">${horse(t.color)+horse(t.color)+horse(t.color)}</div>${t.rank?`<div class="rk">第 ${t.rank} 名</div>`:""}</div>`).join("")+
+    `<div id="gate"><svg viewBox="0 0 46 100" preserveAspectRatio="none" style="width:100%;height:100%"><rect x="0" y="0" width="46" height="100" fill="#8a5a3a"/>
+     <g class="door"><rect x="8" y="22" width="30" height="78" fill="#3a1c1c" stroke="#e3b04b" stroke-width="2"/></g></svg></div>`;
+  const track=W.clientWidth-46-lh*2.6-4;
+  const riders=[...W.querySelectorAll(".rider")];
+  const dur=(a.dur||6)*1000, t0=performance.now()-(a.elapsed||0)*1000;
+  const charge=a.mode==="charge", moving=a.mode==="run"||charge;
+  function pos(t,p){const to=charge?(t.rank===1?1.04:Math.min(1,t.to+0.08)):t.to;return t.from+(to-t.from)*p}
+  function frame(){
+    const p=moving?Math.min(1,(performance.now()-t0)/dur):1;
+    const e=1-Math.pow(1-p,2);
+    riders.forEach((el,i)=>{const t=teams[i];el.style.left=(4+track*pos(t,e))+"px";
+      const go=moving&&p<1&&(pos(t,1)-t.from)>0.001; el.classList.toggle("gal",go);
+      if(go&&Math.random()<.6){const d=document.createElement("div");d.className="dust";d.style.left=(parseFloat(el.style.left)+4)+"px";el.parentNode.appendChild(d);setTimeout(()=>d.remove(),700)}});
+    if(charge&&p>=.85&&!W.querySelector(".boom")){document.getElementById("gate").classList.add("broken");const b=document.createElement("div");b.className="boom";b.textContent="💥";W.appendChild(b)}
+    if(!moving||p>=1){if(timer){clearInterval(timer);timer=null}}
+  }
+  frame(); if(moving){timer=setInterval(frame,60)}
+  post({type:"streamlit:setFrameHeight",height:teams.length*(lh+2)+8});
+}
+window.addEventListener("message",e=>{const d=e.data;if(d&&d.type==="streamlit:render")render(d.args||{})});
+post({type:"streamlit:componentReady",apiVersion:1});
+</script></body></html>

@@ -1,0 +1,30 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;background:transparent;font-family:"Noto Serif TC","PMingLiU",serif;overflow:hidden}
+#box{position:relative;height:96px;overflow:hidden}
+.card{position:absolute;left:0;right:0;height:42px;display:flex;align-items:center;gap:10px;padding:0 12px;box-sizing:border-box;
+ background:#fbf0dc;border:2px solid #e3b04b;border-radius:12px;color:#3a1c1c;transition:top .9s cubic-bezier(.3,1.3,.5,1),opacity .6s;font-weight:900}
+.card.me{background:#ffe9a8;box-shadow:0 0 0 3px #fff3c4 inset}
+.rk{width:40px;font-size:15px;color:#b3261e}.dot{width:14px;height:14px;border-radius:50%}
+.nm{flex:1;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sc{font-size:15px;font-variant-numeric:tabular-nums}
+.up{animation:up .9s}@keyframes up{0%{box-shadow:0 0 0 0 rgba(255,200,60,.9)}100%{box-shadow:0 0 0 14px rgba(255,200,60,0)}}
+</style></head><body><div id="box"></div><script>
+/* 只顯示前兩名的宮；名次變動時小卡片上下滑動交換位置，掉出前兩名的往下滑出畫面。 */
+const cards={}, prevRank={};
+function post(m){window.parent.postMessage(Object.assign({isStreamlitMessage:true},m),"*")}
+function render(a){
+  const box=document.getElementById("box"), ts=(a.teams||[]).slice().sort((x,y)=>y.score-x.score||x.idx-y.idx);
+  let rank=0, prev=null;
+  ts.forEach((t,i)=>{ if(t.score!==prev){rank=i+1;prev=t.score}
+    let el=cards[t.idx];
+    if(!el){el=document.createElement("div");el.className="card";el.style.top="110px";el.style.opacity="0";box.appendChild(el);cards[t.idx]=el;void el.offsetWidth}
+    el.className="card"+(t.me?" me":"");
+    el.innerHTML=`<span class="rk">第${rank}名</span><span class="dot" style="background:${t.color}"></span><span class="nm">${t.name}${t.me?"（本宮）":""}</span><span class="sc">戰績 ${t.score}</span>`;
+    const top=i<2?i*50:110; el.style.top=top+"px"; el.style.opacity=i<2?"1":"0";
+    if(prevRank[t.idx]!==undefined&&i<prevRank[t.idx]&&i<2){el.classList.add("up")}
+    prevRank[t.idx]=i;
+  });
+  post({type:"streamlit:setFrameHeight",height:96});
+}
+window.addEventListener("message",e=>{const d=e.data;if(d&&d.type==="streamlit:render")render(d.args||{})});
+post({type:"streamlit:componentReady",apiVersion:1});
+</script></body></html>

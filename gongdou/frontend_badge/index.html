@@ -1,0 +1,51 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+/* 結算時的徽章動畫：先浮現「收到 ○○ 送的 ×× 徽章」，文字下方再出現徽章圖案。多枚徽章會一枚一枚出現。 */
+*{box-sizing:border-box}
+html,body{margin:0;background:transparent}
+body{font-family:'Noto Serif TC','PMingLiU',serif;color:#3a1c1c;padding:2px 6px 12px}
+.box{background:#fbf0dc;border:3px solid #e3b04b;border-radius:14px;padding:12px 14px 16px;box-shadow:0 8px 20px rgba(0,0,0,.35)}
+.hd{text-align:center;font-size:16px;font-weight:900;color:#a3182a;letter-spacing:.06em}
+.it{margin-top:14px;text-align:center}
+.it+.it{border-top:1px dashed #d9b36a;padding-top:12px}
+.tx{font-size:18px;font-weight:900;line-height:1.7;opacity:0;animation:tin .6s ease-out forwards}
+.tx b{color:#1a7f37}
+.tx em{font-style:normal;color:#a3182a}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.md{margin:6px auto 0;width:112px;height:112px;opacity:0;animation:min .8s cubic-bezier(.2,.9,.3,1.5) forwards}
+@keyframes min{0%{opacity:0;transform:scale(.3) rotate(-25deg)}70%{opacity:1;transform:scale(1.15) rotate(6deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
+.th{margin-top:4px;font-size:15px;color:#7a3b2e;opacity:0;animation:tin .6s ease-out forwards}
+.sh{animation:sh 2.4s ease-in-out infinite}
+@keyframes sh{0%,100%{opacity:.35}50%{opacity:1}}
+</style></head><body><div class="box" id="box"></div>
+<script>
+const $=i=>document.getElementById(i);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const post=m=>window.parent.postMessage(Object.assign({isStreamlitMessage:true},m),'*');
+const setH=()=>post({type:'streamlit:setFrameHeight',height:Math.ceil(document.documentElement.getBoundingClientRect().height)+2});
+// 四種徽章圖案（金邊獎章，中間各有不同圖樣）
+function medal(kind){
+  const art={
+    '關鍵線索':'<circle cx="0" cy="-6" r="11" fill="none" stroke="#8a1a1a" stroke-width="6"/><path d="M0 4 v16 M0 11 h9 M0 18 h7" stroke="#8a1a1a" stroke-width="6" stroke-linecap="round" fill="none"/>',
+    '帶大家整理':'<g stroke="#8a1a1a" stroke-width="5" stroke-linecap="round"><path d="M-14 -12h28M-14 0h28M-14 12h18"/></g><path d="M-22 -12l5 5 8-9" stroke="#1a7f37" stroke-width="5" fill="none" stroke-linecap="round"/>',
+    '提出好問題':'<text x="0" y="17" font-size="46" font-weight="900" fill="#8a1a1a" text-anchor="middle" font-family="serif">？</text>',
+    '讓氣氛放鬆':'<circle cx="-8" cy="-6" r="3.4" fill="#8a1a1a"/><circle cx="8" cy="-6" r="3.4" fill="#8a1a1a"/><path d="M-11 6q11 12 22 0" stroke="#8a1a1a" stroke-width="5" fill="none" stroke-linecap="round"/>',
+  }[kind]||'';
+  return `<svg class="md" viewBox="-60 -60 120 120"><g class="sh"><circle cx="0" cy="-4" r="54" fill="#ffe9a8" opacity=".5"/></g>
+    <path d="M-20 16 l-13 42 19 -11 6 -31Z" fill="#c0392b"/><path d="M20 16 l13 42 -19 -11 -6 -31Z" fill="#8a1a1a"/>
+    <circle cx="0" cy="-6" r="38" fill="#e3b04b" stroke="#fff3c4" stroke-width="4"/>
+    <circle cx="0" cy="-6" r="29" fill="#fff6e0"/><g transform="translate(0 -6)">${art}</g></svg>`;
+}
+function render(a){
+  const list=a.items||[];
+  $('box').innerHTML=`<div class="hd">${esc(a.title||'你收到的徽章')}</div>`+list.map((g,i)=>{
+    const d=i*1.6;
+    return `<div class="it"><div class="tx" style="animation-delay:${d}s">收到 <b>${esc(g.from)}</b> 送的 <em>${esc(g.badge)}</em> 徽章</div>`+
+      medal(g.badge).replace('class="md"',`class="md" style="animation-delay:${d+0.7}s"`)+
+      (g.thanks?`<div class="th" style="animation-delay:${d+1.1}s">「${esc(g.thanks)}」</div>`:'')+'</div>'}).join('');
+  setH();
+}
+window.addEventListener('message',ev=>{const d=ev.data;if(d&&d.type==='streamlit:render'){render(d.args||{});setH()}});
+if(window.ResizeObserver)new ResizeObserver(setH).observe(document.body);
+post({type:'streamlit:componentReady',apiVersion:1});
+</script></body></html>
